@@ -14,7 +14,7 @@ Date Started:   Aug 24, 2022
 #
 # - Add serial number generate button and display
 #
-#
+# - Fix mismatch for generate_sn and add_flyway with hex/decimal values
 #
 # -------------------------------------------------------------------------------------------------------------------- #
 import sys
@@ -59,8 +59,8 @@ Edited:
 ------------------------------------------------------------------------------------"""
 def generate_sn(worksheet, style, component, display, feedback_text):
     feedback_text.configure(text = "Generating S/N...", bg = primary_bg)
-    wks_len = len(worksheet.get_all_values(returnas='matrix', include_tailing_empty=False, include_tailing_empty_rows=False))
-    highest_sn = snt.get_highest_sn(worksheet, wks_len, style, snt.fw_sn_col, component)
+    wks_len = worksheet.row_cnt
+    highest_sn = snt.get_highest_sn(worksheet, snt.fw_sn_col, style, component)
     display.configure(text = highest_sn)
     return 0
 
@@ -76,14 +76,14 @@ Created by: Cameron Jupp
 Date:       Sep 14, 2022
 Edited:
 ------------------------------------------------------------------------------------"""
-def gui_add_flyway(body_id_entry, amp_sn_entry, cont_sn_entry, style, feedback_text):
+def gui_add_flyway(sheet, body_id_entry, amp_sn_entry, cont_sn_entry, style, feedback_text):
     body_id = body_id_entry.get()
     amp_sn = amp_sn_entry.get()
     cont_sn = cont_sn_entry.get()
 
     feedback_text.configure(text = "Checking spreadsheet...", bg = primary_bg)
 
-    return_var = snt.add_flyway(worksheets_array[4], body_id, amp_sn, cont_sn, style)
+    return_var = snt.add_flyway(sheet, body_id, amp_sn, cont_sn, style)
     if return_var == "":
         feedback_text.configure(text = "Failed to add flyway: Body ID already exists!", bg = "light red")
     else:
@@ -303,7 +303,7 @@ generate_sn_button = tk.Button(fw_deco_frame,
                               bg = "orange",
                               height = 1,
                               command = lambda:
-                              generate_sn(worksheets_array[4], customer_var.get(), "flyway", gen_sn_display, fw_feedback_text))
+                              generate_sn(worksheets_dict["Production Log"], customer_var.get(), "flyway", gen_sn_display, fw_feedback_text))
 generate_sn_button.grid(row = 3, rowspan = 1, column = 1, columnspan = 1, padx = 30, pady = 30, sticky = tk.NSEW)
 
 #----------------------------------------------------------------------------------------------------------------------
@@ -313,7 +313,7 @@ fw_submit_button = tk.Button(fw_deco_frame,
                              font = (universal_font, button_font_size),
                              bg = "blue",
                              command=lambda:
-                             gui_add_flyway(body_id_entry, amp_sn_entry, controller_sn_entry, customer_var.get(), fw_feedback_text))
+                             gui_add_flyway(worksheets_dict["Production Log"], body_id_entry, amp_sn_entry, controller_sn_entry, customer_var.get(), fw_feedback_text))
 fw_submit_button.grid(row = 6, rowspan = 1, column = 1, columnspan = 1, padx = 70, pady = 30, sticky = tk.NSEW)
 
 fw_clear_button = tk.Button(fw_deco_frame,

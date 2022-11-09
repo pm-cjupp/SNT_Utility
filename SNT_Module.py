@@ -12,8 +12,15 @@ Date Started:   November 2, 2022
 # -------------------------------------------------------------------------------------------------------------------- #
 # Last left off at:
 #
-#    #CREATE WORKSHEET OBJECT
-#   includes number of rows and columns, data, name, and parent data
+# - Add names for columns and sheets
+#
+# - Code auto indexing function
+#
+# - Add "download sheet" and "update changes" buttons to GUI
+#
+# - Create new format for GUI on tablet
+#
+# - Connect any worksheet functions with sheets object
 #
 #
 # -------------------------------------------------------------------------------------------------------------------- #
@@ -106,7 +113,7 @@ class Sheet:
 
 class InfoLine:
     def __init__(self, info, line, default):
-        self.line = self.FindLineNum();
+        self.line = self.FindLineNum()
         self.info = info
         self.line = line
         self.default = default
@@ -147,7 +154,7 @@ Edited:
 ------------------------------------------------------------------------------------"""
 def init_sheets():
     #Download the worksheet from Synology
-    download_sheets()
+    #download_sheets()
 
     #Load the worksheet from local path
     prod_wb = openpyxl.load_workbook(prod_ss)
@@ -160,8 +167,8 @@ def init_sheets():
         prod_sheets[prod_wb.sheetnames[sheet]] = Sheet(prod_wb.worksheets[sheet], [], 2)
 
     #Troubleshooting statements
-    print(prod_sheets)
-    print(prod_sheets["ERP"].col_cnt)
+    #print(prod_sheets)
+    #print(prod_sheets["ERP"].col_cnt)
 
     #Return the sheets dictionary to main for use
     return prod_sheets
@@ -229,7 +236,7 @@ search_wks: searches an entire worksheet for a particular string
 Arguments:
  - search_string: the string to be searched for
  
- - worksheet: the worksheet to be searched within
+ - worksheet: the worksheet object to be searched within
                 -----------------------------------------------
 Returns: 
 - "none_found" if no matching string is found
@@ -254,7 +261,7 @@ def search_wks(search_string, worksheet):
     col_indx = 1
     row_indx = 1
 
-    for row in worksheet:
+    for row in worksheet.data:
         for item in row:
             value = item
             if value == search_string:
@@ -280,7 +287,7 @@ Arguments:
  
  - column: the column of choice to search in
  
- - worksheet: the worksheet the string is being search for in
+ - worksheet: the worksheet object the string is being search for in
                 -----------------------------------------------
 Returns: 
 - "none_found" if no matching string is found
@@ -303,7 +310,7 @@ def search_col(search_string, column, worksheet):
     row_result = 0
     row_indx = 1
 
-    for row in worksheet:
+    for row in worksheet.data:
         value = row[column]
         #print(value)
         if value == search_string:
@@ -323,7 +330,7 @@ def search_col(search_string, column, worksheet):
 get_highest_sn: 
                 -----------------------------------------------
 Arguments:
- - worksheet: the worksheet that the sn is being searched within
+ - worksheet: the worksheet object that the sn is being searched within
  
  - wks_size: the size of the worksheet, to prevent unecessary extra calculations
  
@@ -340,9 +347,9 @@ Created by: Cameron Jupp
 Date:       Aug 24, 2022
 Edited:
 ------------------------------------------------------------------------------------"""
-def get_highest_sn(worksheet, wks_size, column, company, component):
+def get_highest_sn(worksheet, column, company, component):
     #print(wks_size)
-    print("style" + company)
+    #print("style" + company)
     highest_sn = 0
     sn_prefix = '0'
     if component == 'controller':
@@ -361,22 +368,28 @@ def get_highest_sn(worksheet, wks_size, column, company, component):
             sn_prefix = ''
 
 
-
-    for row in range(2, wks_size):
-        #print("row:" + str(row))
-        #print( "worksheet cell:" + worksheet[row+1][column])
-        cell_string = worksheet[row+1][column]
+    for row in range(2, worksheet.row_cnt-1):
+        print(type(row))
+        print(type(column))
+        print(column)
+        print("row:" + str(row))
+        print(worksheet.row_cnt)
+        print(worksheet.col_cnt)
+        print( "worksheet cell:" + str(worksheet.data[row][column]))
+        cell_string = str(worksheet.data[row][column])
 
         if cell_string != '':
             #print("cell string:" + cell_string[0:5])
 
             if cell_string[0:5] == sn_prefix:
-                cell_value = int(worksheet[row+1][column], 16)
+                cell_value = int(cell_string, 16)
                 #print("cell value:" + str(cell_value))
 
                 if int(cell_value) > int(highest_sn):       #FIX VAR TYPE ISSUE HERE
-                    highest_sn = int(worksheet[row+1][column], 16)
+                    highest_sn = int(cell_string, 16)
                     #print("highest sn:" + str(highest_sn))
+    print(highest_sn)
+    print(hex(highest_sn))
     return highest_sn
 
 
@@ -385,7 +398,7 @@ add_flyway: adds a new flyway serial number to the worksheet based on the observ
 then also adds in the amp and controller serial numbers input by the user
                 -----------------------------------------------
 Arguments:
- - worksheet: the worksheet that the information being added lives on
+ - worksheet: the worksheet object that the information being added lives on
  
  - body_id: the body id of the flyway being built
  
@@ -407,15 +420,15 @@ def add_flyway(worksheet, body_id, amp_sn, controller_sn, company):
     next_free_row = 0
 
     #Check to see if the body ID input already exists
-    if search_col(body_id, 1, worksheet) == "none_found":
-        wks_len = len(worksheet.get_all_values(returnas='matrix', include_tailing_empty=False, include_tailing_empty_rows=False))
+    if search_col(body_id, 1, worksheet.data) == "none_found":
+        wks_len = worksheet.row_cnt
         print(wks_len)
 
     else:
         return "existing_id"
 
     #Find the value of the highest serial number for a given company
-    highest_sn = get_highest_sn(worksheet, wks_len, fw_sn_col, company, "flyway")
+    highest_sn = get_highest_sn(worksheet, fw_sn_col, company, "flyway")
     print(highest_sn)
 
     #Get the row of the Body ID you want to write to
@@ -430,9 +443,9 @@ def add_flyway(worksheet, body_id, amp_sn, controller_sn, company):
     print("SN updated")
 
     #Add the amp and controller serial numbers
-    worksheet.update_value((fw_row, fw_amp_sn_col), amp_sn)
+    worksheet.data[fw_row][fw_amp_sn_col] = amp_sn
     print("Amp SN updated")
-    worksheet.update_value((fw_row, fw_cont_sn_col), controller_sn)
+    worksheet.data[fw_row][fw_amp_sn_col] = controller_sn
     print("Controller SN updated")
 
 """------------------------------------------------------------------------------------
@@ -459,7 +472,11 @@ def add_controller(worksheet, controller_sn):
 
 if __name__ == "__main__":
     #Initialize the sheet, worksheets, and any other prerequisites
-    init_sheets()
+    sheets_array = init_sheets()
+    for rows in sheets_array["Production Log"].data:
+        #print(rows)
+        for cells in rows:
+            print(cells)
 
 
 
