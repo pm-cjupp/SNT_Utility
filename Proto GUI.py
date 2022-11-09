@@ -59,9 +59,9 @@ Edited:
 ------------------------------------------------------------------------------------"""
 def generate_sn(worksheet, style, component, display, feedback_text):
     feedback_text.configure(text = "Generating S/N...", bg = primary_bg)
-    wks_len = worksheet.row_cnt
-    highest_sn = snt.get_highest_sn(worksheet, snt.fw_sn_col, style, component)
-    display.configure(text = highest_sn)
+    new_sn = hex(snt.get_highest_sn(worksheet, snt.fw_sn_col, style, component) + 1).upper(); new_sn = new_sn[2:]
+
+    display.configure(text = new_sn)
     return 0
 
 """------------------------------------------------------------------------------------
