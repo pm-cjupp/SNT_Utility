@@ -16,12 +16,10 @@ Date Started:   November 2, 2022
 #
 # - Code auto indexing function
 #
-# - Add "download sheet" and "update changes" buttons to GUI
+# - Add flyway object to reduce number of passed in variables
+#       e.g. flyway number, controller, amp, etc...
 #
-# - Create new format for GUI on tablet
-#
-# - Connect any worksheet functions with sheets object
-#
+# - Add check for serial number when generating new one to prevent overwriting with newer serial number
 #
 # -------------------------------------------------------------------------------------------------------------------- #
 
@@ -46,8 +44,8 @@ controller_sn_prefix = '95231'
 body_id_col = 0
 
 fw_sn_col = 7
-fw_amp_sn_col = 24
-fw_cont_sn_col = 25
+fw_amp_sn_col = 25
+fw_cont_sn_col = 26
 
 NAS_IP = '192.168.1.65'
 NAS_PORT = '5001'
@@ -65,9 +63,31 @@ prod_ss = 'ProductionScreenshot.xlsx'
 
 
 # ------------------------------- Classes ----------------------------------------
+class Flyway:
+    def __init__(self, body_id, amp_sn, controller_sn, peb_style, company):
+        self.body_id        = body_id
+        self.amp_sn         = amp_sn
+        self.controller_sn  = controller_sn
+        self.peb_style      = peb_style
+        self.company        = company
+
+        #self.assembly_date
+        #self.
+
+
+
+
+
+
+
 class Sheet:
-    def __init__(self, sheet_obj, header_list, header_row):
+    def __init__(self, sheet_obj, sheet_index, header_list, header_row, parent_workbook):
         # -------------------------------------------------------------------
+        #Take the parent workbook object and create a reference to it for later use
+        self.parent_workbook = parent_workbook
+
+        self.sheet_index = sheet_index
+
         #Define the number of rows
         self.row_cnt = sheet_obj.max_row
         #Define the number of columns
@@ -78,13 +98,20 @@ class Sheet:
         self.header_row = header_row
 
         #Transfer the data into a list of lists for simple use
-        self.get_data(sheet_obj)
+        self.parse_data(sheet_obj)
 
         #Automatically find the header names and save them
-        self.get_headers()
+        self.parse_headers()
+
         #-------------------------------------------------------------------
 
-    def get_data(self, sheet_obj):
+    def update_workbook(self):
+        self.parent_workbook.save(prod_ss)
+
+    def update_cell(self, row, column, value):
+        self.parent_workbook.worksheets[self.sheet_index].cell(row, column).value = value
+
+    def parse_data(self, sheet_obj):
         # -------------------------------------------------------------------
         self.data = []
         for row in range(1, self.row_cnt):
@@ -96,7 +123,7 @@ class Sheet:
             self.data.append(row_data)
          # -------------------------------------------------------------------
 
-    def get_headers(self):
+    def parse_headers(self):
         # -------------------------------------------------------------------
         self.header_indexes = []
         #For every column in the header row
@@ -163,8 +190,10 @@ def init_sheets():
     prod_sheets = {}
 
     #Assign dictionary entries based on sheet names, then create sheet objects from them
+    sheet_index = 0
     for sheet in range(len(prod_wb.sheetnames)):
-        prod_sheets[prod_wb.sheetnames[sheet]] = Sheet(prod_wb.worksheets[sheet], [], 2)
+        prod_sheets[prod_wb.sheetnames[sheet]] = Sheet(prod_wb.worksheets[sheet], sheet_index, [], 2, prod_wb)
+        sheet_index += 1
 
     #Troubleshooting statements
     #print(prod_sheets)
@@ -311,12 +340,11 @@ def search_col(search_string, column, worksheet):
     row_indx = 1
 
     for row in worksheet.data:
-        value = row[column]
-        #print(value)
+        value = str(row[column])
         if value == search_string:
             cell_found += 1
             row_result = row_indx
-            #print(cell_found)
+            print(cell_found)
         row_indx+=1
 
     if cell_found == 0:
@@ -419,34 +447,57 @@ def add_flyway(worksheet, body_id, amp_sn, controller_sn, company):
     highest_sn = 0
     next_free_row = 0
 
+
+#-------------------------------------- WHAT IS THIS??? ----------------------
     #Check to see if the body ID input already exists
-    if search_col(body_id, 1, worksheet.data) == "none_found":
-        wks_len = worksheet.row_cnt
-        print(wks_len)
+    print(body_id)
+    flyway_check = search_col(body_id, body_id_col, worksheet)
+    print(flyway_check)
+
+    if flyway_check == "none_found":
+        return "none_found"
+
+    elif flyway_check == "multiple_found":
+        return "multiple found"
 
     else:
-        return "existing_id"
+#----------------------------------------------------------------------------
 
-    #Find the value of the highest serial number for a given company
-    highest_sn = get_highest_sn(worksheet, fw_sn_col, company, "flyway")
-    print(highest_sn)
+        #Find the value of the highest serial number for a given company
+        highest_sn = get_highest_sn(worksheet, fw_sn_col, company, "flyway")
+        print(highest_sn)
 
-    #Get the row of the Body ID you want to write to
-    fw_row = search_col(body_id, body_id_col, worksheet)
-    print(fw_row)
+        #Get the row of the Body ID you want to write to
+        fw_row = search_col(body_id, body_id_col, worksheet)
+        print(fw_row)
 
-    #Increment and write the value to the next row
-    print(hex(highest_sn + 1).upper())
-    new_fw_sn = hex(highest_sn + 1).upper()
-    new_fw_sn = new_fw_sn[2:]
-    worksheet.update_value((fw_row, fw_sn_col+1), new_fw_sn)
-    print("SN updated")
+        #Increment and write the value to the next row
+        print(hex(highest_sn + 1).upper())
+        new_fw_sn = hex(highest_sn + 1).upper()
+        new_fw_sn = new_fw_sn[2:]
+        print(fw_row)
+        print(type(fw_row))
+        print(fw_sn_col)
+        print(type(fw_sn_col))
+        print(new_fw_sn)
+        print(type(new_fw_sn))
 
-    #Add the amp and controller serial numbers
-    worksheet.data[fw_row][fw_amp_sn_col] = amp_sn
-    print("Amp SN updated")
-    worksheet.data[fw_row][fw_amp_sn_col] = controller_sn
-    print("Controller SN updated")
+        #Add the new serial number
+        worksheet.data[fw_row][fw_sn_col] = new_fw_sn
+        worksheet.update_cell(fw_row, fw_sn_col, new_fw_sn)
+        print("SN updated")
+
+        #Add the amp and controller serial numbers
+        worksheet.data[fw_row][fw_amp_sn_col] = amp_sn
+        worksheet.update_cell(fw_row, fw_amp_sn_col, amp_sn)
+        print("Amp SN updated")
+
+        worksheet.data[fw_row][fw_cont_sn_col] = controller_sn
+        worksheet.update_cell(fw_row, fw_cont_sn_col, controller_sn)
+        print("Controller SN updated")
+
+        #worksheet.update_workbook
+        worksheet.parent_workbook.save(prod_ss)
 
 """------------------------------------------------------------------------------------
 :
@@ -478,7 +529,12 @@ if __name__ == "__main__":
         for cells in rows:
             print(cells)
 
-
+    #sheets_array["Production Log"].parent_workbook.worksheets[6].cell(1111, 1).value = "Test Value"
+    prod_wb = openpyxl.load_workbook(prod_ss)
+    print(prod_wb.worksheets[6].cell(1111, 1).value)
+    prod_wb.worksheets[6].cell(1111, 1).value = "Test"
+    print(prod_wb.worksheets[6].cell(1111, 1).value)
+    prod_wb.save(prod_ss)
 
 
 

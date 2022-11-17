@@ -12,16 +12,21 @@ Date Started:   Aug 24, 2022
 # -------------------------------------------------------------------------------------------------------------------- #
 # Last left off at:
 #
-# - Add serial number generate button and display
-#
 # - Fix mismatch for generate_sn and add_flyway with hex/decimal values
 #
+# - Add "download sheet" and "update changes" buttons to GUI
+#
+# - Create new format for GUI on tablet
+#
+# - Create a "merge" function - keep track of the lines of code added to the document and add them in after the lines
+#   from the online version of the document
 # -------------------------------------------------------------------------------------------------------------------- #
 import sys
 
 print(sys.path)
 import tkinter as tk
 import tkinter.ttk as ttk
+import tkinter.messagebox as mb
 import SNT_Module as snt
 
 # -------------------------------------------------------------------------------------------------------------------- #
@@ -59,9 +64,12 @@ Edited:
 ------------------------------------------------------------------------------------"""
 def generate_sn(worksheet, style, component, display, feedback_text):
     feedback_text.configure(text = "Generating S/N...", bg = primary_bg)
-    new_sn = hex(snt.get_highest_sn(worksheet, snt.fw_sn_col, style, component) + 1).upper(); new_sn = new_sn[2:]
-
+    # Add one to the highest sn,
+    # Convert all letters to uppercase
+    # Remove the '0x' from the beginning of the string
+    new_sn = hex(snt.get_highest_sn(worksheet, snt.fw_sn_col, style, component) + 1).upper()[2:]
     display.configure(text = new_sn)
+    feedback_text.configure(text="S/N Generated Above", bg=primary_bg)
     return 0
 
 """------------------------------------------------------------------------------------
@@ -84,8 +92,10 @@ def gui_add_flyway(sheet, body_id_entry, amp_sn_entry, cont_sn_entry, style, fee
     feedback_text.configure(text = "Checking spreadsheet...", bg = primary_bg)
 
     return_var = snt.add_flyway(sheet, body_id, amp_sn, cont_sn, style)
-    if return_var == "":
-        feedback_text.configure(text = "Failed to add flyway: Body ID already exists!", bg = "light red")
+    if return_var == "multiple_found":
+        feedback_text.configure(text = "Failed to add flyway: Duplicate body IDs exist!", bg = "red")
+    elif return_var == "none_found":
+        feedback_text.configure(text="Failed to add flyway: Body ID does not yet exist!", bg="red")
     else:
         feedback_text.configure(text="Flyway successfully added!", bg = "light green")
 
@@ -106,6 +116,48 @@ def clear_fw_entry(body_id_entry, amp_sn_entry, cont_sn_entry):
     amp_sn_entry.delete(0, tk.END)
     cont_sn_entry.delete(0, tk.END)
     return 0
+
+
+"""------------------------------------------------------------------------------------
+download_sheet: Prompts the user with a message box, and then downloads the server 
+version of the document if "ok" is chosen
+                -----------------------------------------------
+Arguments:
+ -
+                -----------------------------------------------
+Returns: nothing
+                -----------------------------------------------
+Created by: Cameron Jupp
+Date:       Nov 17, 2022
+Edited:
+------------------------------------------------------------------------------------"""
+def download_sheet():
+    if mb.askokcancel("Download Document from Synology",
+                   "Are you sure you want to re-download the sheets document from Synology? All progress will be lost."):
+        #snt.download_sheets()
+        pass
+
+
+"""------------------------------------------------------------------------------------
+upload_sheet: Prompts the user with a message box, and then downloads the server 
+version of the document if "ok" is chosen
+                -----------------------------------------------
+Arguments:
+ -
+                -----------------------------------------------
+Returns: nothing
+                -----------------------------------------------
+Created by: Cameron Jupp
+Date:       Nov 17, 2022
+Edited:
+------------------------------------------------------------------------------------"""
+def upload_sheet():
+    if mb.askokcancel("Upload Document",
+                      "Are you sure you want to upload? Any progress made online will be overwritten by the local file."):
+        #snt.update_sheets()
+        pass
+
+
 
 """------------------------------------------------------------------------------------
 gui_add_controller: 
@@ -174,13 +226,45 @@ worksheets_dict = gui_init()
 Main = tk.Tk()
 
 Main.title("Serial Number Tool")
-Main.geometry("1200x600")
+Main.geometry("1300x600")
 
-main_notebook = ttk.Notebook(Main)
-main_notebook.pack(expand = "yes", fill = "both")
+#----------------------------------------------------------------------------------------------------------------------
+#---------------------------------------------- Document Options ------------------------------------------------------
+#----------------------------------------------------------------------------------------------------------------------
+
+document_actions_frame = tk.Frame(Main)
+document_actions_frame.pack(expand = "yes", side = tk.RIGHT, fill = "both")
+
+doc_act_deco_frame = tk.LabelFrame(document_actions_frame, bg = primary_bg)
+doc_act_deco_frame.pack(expand = "yes", fill = "both", padx = 10, pady = 10)
+
+dl_document_button = tk.Button(doc_act_deco_frame,
+                               text = "Download Document",
+                               font = (universal_font, entry_font_size),
+                               bg = "light blue",
+                               height = 1,
+                               command = lambda:
+                               download_sheet())
+dl_document_button.grid(row = 1, rowspan = 1, column = 1, columnspan = 1, padx = 30, pady = 30, sticky = tk.NSEW)
+
+ul_document_button = tk.Button(doc_act_deco_frame,
+                               text = "Upload Changes",
+                               font = (universal_font,entry_font_size),
+                               bg = "light blue",
+                               height = 1,
+                               command = lambda:
+                               upload_sheet())
+ul_document_button.grid(row = 2, rowspan = 1, column = 1, columnspan = 1, padx = 30, pady = 30, sticky = tk.NSEW)
+
+
+
 #----------------------------------------------------------------------------------------------------------------------
 #------------------------------------------------ Notebook Tabs -------------------------------------------------------
 #----------------------------------------------------------------------------------------------------------------------
+
+main_notebook = ttk.Notebook(Main)
+main_notebook.pack(expand = "yes", side = tk.LEFT, fill = "both")
+
 
 ttk.Style().configure('TNotebook.Tab',
                       font=(universal_font, tab_font_size),
@@ -293,8 +377,6 @@ gen_sn_display = tk.Label(sn_display_frame,
                           font = (universal_font, entry_font_size),
                           bg = entry_bg)
 gen_sn_display.pack(expand = "yes", fill = "both")
-
-
 
 
 generate_sn_button = tk.Button(fw_deco_frame,
